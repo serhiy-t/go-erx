@@ -6,9 +6,9 @@ import (
 	"testing"
 )
 
-func testRef() *ErrorReference {
+func testLogger() *ErrLogger {
 	var out error
-	e, _ := ErrorRef(&out)
+	e := ErrorLogger(&out)
 
 	out = fmt.Errorf("error-returned")
 	e.suppressed = append(e.suppressed, fmt.Errorf("error-suppressed"))
@@ -35,7 +35,7 @@ func testLogFn(logs *[]string) LogFn {
 func TestLogReturned(t *testing.T) {
 	var logs []string
 	defer SetLogFn(testLogFn(&logs)).ThenRestore()
-	e := testRef()
+	e := testLogger()
 
 	e.LogReturnedError()
 	assert.Equal(t, []string{
@@ -47,7 +47,7 @@ func TestLogReturned_NoError(t *testing.T) {
 	var logs []string
 	defer SetLogFn(testLogFn(&logs)).ThenRestore()
 	var out error
-	e, _ := ErrorRef(&out)
+	e := ErrorLogger(&out)
 
 	e.LogReturnedError()
 	assert.Empty(t, logs)
@@ -56,7 +56,7 @@ func TestLogReturned_NoError(t *testing.T) {
 func TestLogSuppressed(t *testing.T) {
 	var logs []string
 	defer SetLogFn(testLogFn(&logs)).ThenRestore()
-	e := testRef()
+	e := testLogger()
 
 	e.LogSuppressedErrors()
 	assert.Equal(t, []string{
@@ -67,7 +67,7 @@ func TestLogSuppressed(t *testing.T) {
 func TestLogIgnored(t *testing.T) {
 	var logs []string
 	defer SetLogFn(testLogFn(&logs)).ThenRestore()
-	e := testRef()
+	e := testLogger()
 
 	e.LogIgnoredErrors()
 	assert.Equal(t, []string{
@@ -78,7 +78,7 @@ func TestLogIgnored(t *testing.T) {
 func TestLogAll(t *testing.T) {
 	var logs []string
 	defer SetLogFn(testLogFn(&logs)).ThenRestore()
-	e := testRef()
+	e := testLogger()
 
 	e.LogAllErrors()
 	assert.Equal(t, []string{
@@ -91,7 +91,7 @@ func TestLogAll(t *testing.T) {
 func TestLogSilent(t *testing.T) {
 	var logs []string
 	defer SetLogFn(testLogFn(&logs)).ThenRestore()
-	e := testRef()
+	e := testLogger()
 
 	e.LogSilentErrors()
 	assert.Equal(t, []string{

@@ -13,9 +13,9 @@ type Location struct {
 func ParseLatLongUrl(url string) (l Location, out error) {
 	defer erx.ErrFromPanic(&out)
 
-	panicsConsumeKey(&url, "lat")
-	l.Lat = panicsAtof(panicsConsumeValue(&url))
-	panicsConsumeKey(&url, "long")
-	l.Long = panicsAtof(panicsConsumeValue(&url))
+	consumeKeyOrPanic(&url, "lat")
+	l.Lat = atofOrPanic(consumeValueOrPanic(&url))
+	consumeKeyOrPanic(&url, "long")
+	l.Long = atofOrPanic(consumeValueOrPanic(&url))
 	return
 }

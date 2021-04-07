@@ -2,6 +2,7 @@ package examples
 
 import (
 	"compress/gzip"
+	"fmt"
 	"github.com/serhiy-t/go-erx"
 	"io"
 	"os"
@@ -34,40 +35,42 @@ type GzipStats struct {
 	Compressed   int64
 	Uncompressed int64
 }
+var noGzipStats = GzipStats{Compressed: -1, Uncompressed: -1}
 
 // GzipFile compresses file srcFilename into dstFilename.
 func GzipFile(dstFilename string, srcFilename string) (stats GzipStats, out error) {
-	e, ret := erx.ErrorRef(&out)
-	defer e.OnError(func() { stats.Compressed = -1; stats.Uncompressed = -1 })
-	defer e.WrapFmtErrorw("error compressing file %s to %s", srcFilename, dstFilename)
-	defer e.LogSilentErrors()
+	defer erx.WrapFmtErrorw(&out,"error compressing file %s to %s", srcFilename, dstFilename)
 
-	if ret(
-		erx.AssertErr(len(dstFilename) > 0, "dst file should be specified"),
-		erx.AssertErr(len(srcFilename) > 0, "src file should be specified")) {
-		return
+	errLogger := erx.ErrorLogger(&out)
+	defer errLogger.LogSilentErrors()
+
+	if len(dstFilename) == 0 {
+		return noGzipStats, fmt.Errorf("dst file should be specified")
+	}
+	if len(srcFilename) == 0 {
+		return noGzipStats, fmt.Errorf("src file should be specified")
 	}
 
 	reader, err := os.Open(srcFilename)
-	if ret(err) {
-		return
+	if err != nil {
+		return noGzipStats, err
 	}
-	defer e.IgnoreErr(reader.Close)
+	defer erx.IgnoreErr(reader.Close, errLogger)
 
 	writer, err := ByteCounterWrap(os.Create(dstFilename))
-	if ret(err) {
-		return
+	if err != nil {
+		return noGzipStats, err
 	}
-	defer e.OnErrorOrPanic(func() { _ = os.Remove(dstFilename) })
-	defer e.OnSuccess(func() { stats.Compressed = writer.Bytes() })
-	defer e.CheckErr(writer.Close)
+	defer erx.OnErrorOrPanic(&out, func() { _ = os.Remove(dstFilename) })
+	defer erx.OnSuccess(&out, func() { stats.Compressed = writer.Bytes() })
+	defer erx.CheckErr(&out, writer.Close, errLogger)
 
 	gzipWriter := gzip.NewWriter(writer)
-	defer e.CheckErr(gzipWriter.Close)
+	defer erx.CheckErr(&out, gzipWriter.Close, errLogger)
 
 	stats.Uncompressed, err = io.Copy(gzipWriter, reader)
-	if ret(err) {
-		return
+	if err != nil {
+		return noGzipStats, err
 	}
 
 	return

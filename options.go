@@ -1,24 +1,44 @@
 package erx
 
-import "runtime/debug"
+import (
+	"runtime/debug"
+)
 
-func (e *ErrorReference) LogSuppressedErrors() {
+type Option interface{
+	reportIgnored(error)
+	reportSuppressed(error)
+}
+
+type ErrLogger struct {
+	errPtr *error
+
+	ignored    []error
+	suppressed []error
+}
+
+func ErrorLogger(errPtr *error) *ErrLogger {
+	return &ErrLogger{
+		errPtr: errPtr,
+	}
+}
+
+func (e *ErrLogger) LogSuppressedErrors() {
 	e.log(e.selectSuppressed())
 }
 
-func (e *ErrorReference) LogSilentErrors() {
+func (e *ErrLogger) LogSilentErrors() {
 	e.log(e.selectSuppressed(), e.selectIgnored())
 }
 
-func (e *ErrorReference) LogIgnoredErrors() {
+func (e *ErrLogger) LogIgnoredErrors() {
 	e.log(e.selectIgnored())
 }
 
-func (e *ErrorReference) LogAllErrors() {
+func (e *ErrLogger) LogAllErrors() {
 	e.log(e.selectReturned(), e.selectSuppressed(), e.selectIgnored())
 }
 
-func (e *ErrorReference) LogReturnedError() {
+func (e *ErrLogger) LogReturnedError() {
 	e.log(e.selectReturned())
 }
 
@@ -27,9 +47,17 @@ type ErrorForLog struct {
 	tag string
 }
 
-type ErrorSelector func(e *ErrorReference) []ErrorForLog
+type ErrorSelector func(e *ErrLogger) []ErrorForLog
 
-func (e *ErrorReference) log(selectors ...ErrorSelector) {
+func (e *ErrLogger) reportIgnored(err error) {
+	e.ignored = append(e.ignored, err)
+}
+
+func (e *ErrLogger) reportSuppressed(err error) {
+	e.suppressed = append(e.suppressed, err)
+}
+
+func (e *ErrLogger) log(selectors ...ErrorSelector) {
 	var stack string
 	for _, selector := range selectors {
 		errors := selector(e)
@@ -47,8 +75,8 @@ func (e *ErrorReference) log(selectors ...ErrorSelector) {
 	}
 }
 
-func (e *ErrorReference) selectReturned() ErrorSelector {
-	return func(e *ErrorReference) []ErrorForLog {
+func (e *ErrLogger) selectReturned() ErrorSelector {
+	return func(e *ErrLogger) []ErrorForLog {
 		if *e.errPtr == nil {
 			return nil
 		}
@@ -61,8 +89,8 @@ func (e *ErrorReference) selectReturned() ErrorSelector {
 	}
 }
 
-func (e *ErrorReference) selectIgnored() ErrorSelector {
-	return func(e *ErrorReference) []ErrorForLog {
+func (e *ErrLogger) selectIgnored() ErrorSelector {
+	return func(e *ErrLogger) []ErrorForLog {
 		var result []ErrorForLog
 		for _, err := range e.ignored {
 			result = append(result, ErrorForLog{
@@ -74,8 +102,8 @@ func (e *ErrorReference) selectIgnored() ErrorSelector {
 	}
 }
 
-func (e *ErrorReference) selectSuppressed() ErrorSelector {
-	return func(e *ErrorReference) []ErrorForLog {
+func (e *ErrLogger) selectSuppressed() ErrorSelector {
+	return func(e *ErrLogger) []ErrorForLog {
 		var result []ErrorForLog
 		for _, err := range e.suppressed {
 			result = append(result, ErrorForLog{
