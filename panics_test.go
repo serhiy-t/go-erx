@@ -18,17 +18,24 @@ func TestPanicError(t *testing.T) {
 }
 
 func TestErrFromPanic(t *testing.T) {
-	fn := func(panicObj interface{}) (out error) {
-		defer ErrFromPanic(&out)
+	var errLogger *ErrLogger
+	fn := func(panicObj interface{}, err error) (out error) {
+		errLogger = ErrorLogger(&out)
+		defer ErrFromPanic(&out, errLogger)
 
+		out = err
 		if panicObj != nil {
 			panic(panicObj)
 		}
 
-		return nil
+		return err
 	}
 
-	assert.Nil(t, fn(nil))
-	assert.EqualError(t, fn(fmt.Errorf("error")), "error")
-	assert.EqualError(t, fn("error"), "panic: error")
+	assert.Nil(t, fn(nil, nil))
+	assert.EqualError(t, fn(fmt.Errorf("error"), nil), "error")
+	assert.EqualError(t, fn("error", nil), "panic: error")
+
+	assert.EqualError(t, fn("error", fmt.Errorf("suppressed")), "panic: error")
+	assert.Len(t, errLogger.suppressed, 1)
+	assert.EqualError(t, errLogger.suppressed[0], "suppressed")
 }
